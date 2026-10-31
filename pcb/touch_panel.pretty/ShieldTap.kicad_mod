@@ -1,0 +1,42 @@
+(footprint "ShieldTap"
+	(version 20241229)
+	(generator "make_footprints.py")
+	(layer "F.Cu")
+	(descr "Tap for the shield zone, placed on the bottom layer")
+	(property "Reference" "REF**"
+		(at 0 -2.25 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "ShieldTap"
+		(at 0 2.25 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr exclude_from_pos_files exclude_from_bom)
+	(fp_rect
+		(start -0.75 -0.75)
+		(end 0.75 0.75)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(pad "1" smd rect
+		(at 0 0)
+		(size 1.5 1.5)
+		(layers "F.Cu")
+	)
+)

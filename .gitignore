@@ -1,13 +1,23 @@
 # Wi-Fi credentials (firmware/main/wifi_secrets.h.example is the template).
 firmware/main/wifi_secrets.h
 
-# Generated: the ESP-IDF build and its config, and the printable tiles and project,
-# which tools/plate.sh rebuilds.
+# Generated: the ESP-IDF build and its config, the printable tiles and project, which
+# cad/tools/plate.sh rebuilds, and the PCB fab files, which pcb/tools/make_fab.py rebuilds.
 firmware/build/
+firmware/build-s3/
 firmware/sdkconfig
 firmware/sdkconfig.old
 firmware/managed_components/
 cad/build/
+pcb/fab/
+
+# KiCad's per-user and backup files
+pcb/*.kicad_prl
+pcb/*-backups/
+pcb/fp-info-cache
+
+# Claude Code's worktrees
+.claude/
 
 __pycache__/
 .DS_Store

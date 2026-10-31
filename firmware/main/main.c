@@ -1,4 +1,4 @@
-/* Shows the MPR121's 12 readings as a 3 x 4 grid laid out like the panel seen from
+/* Shows the 12 pads' readings (sensor.h) as a 3 x 4 grid laid out like the panel seen from
  * the front and turned 180 degrees, so with ELE0 at the bottom right, redrawn in
  * place 20 times a second.
  *
@@ -10,9 +10,9 @@
  * hand does not drag it down: otherwise repeated gestures leave the idle readings
  * several counts negative. If the gate stays shut for HOLD_MAX_S, which a hand would
  * not do, the background updates anyway, so drift cannot freeze it for good. The
- * MPR121's own averaging already removes the fastest noise, so the change is the
- * reading band-passed. A hand lowers the raw reading, so the change shown is
- * background minus reading, and it grows as the hand comes closer.
+ * sensor's own averaging already removes the fastest noise, so the change is the
+ * reading band-passed. The sensor's level rises as a hand comes closer, so the change
+ * shown is the level minus the background.
  *
  * The pad token is the pad whose centre the centroid is within TOKEN_RADIUS of, in
  * cells, or -1 while the dot is between pads, or -2 while there is no dot. The display
@@ -46,7 +46,7 @@
 #include "ble.h"
 #include "gesture.h"
 #include "kasa.h"
-#include "mpr121.h"
+#include "sensor.h"
 #include "wifi.h"
 
 #define PERIOD_MS 50
@@ -66,7 +66,7 @@
 #define TOP 4 /* screen line where the grid starts, after the header */
 #define BANNER_FRAMES 20
 
-static float background[MPR121_ELECTRODES];
+static float background[SENSOR_PADS];
 
 /* xterm 256-colour backgrounds, from cold to hot. */
 static const uint8_t ramp[] = {17, 18, 19, 20, 21, 27, 33, 39, 45, 51, 49, 48, 47, 46,
@@ -75,16 +75,16 @@ static const uint8_t ramp[] = {17, 18, 19, 20, 21, 27, 33, 39, 45, 51, 49, 48, 4
 
 static void take_baseline(void)
 {
-    uint16_t r[MPR121_ELECTRODES];
+    int r[SENSOR_PADS];
     memset(background, 0, sizeof background);
     int n = 0;
     while (n < BASELINE_READS) {
         vTaskDelay(pdMS_TO_TICKS(PERIOD_MS / 2));
-        if (mpr121_read(r) != ESP_OK) continue;
-        for (int e = 0; e < MPR121_ELECTRODES; e++) background[e] += r[e];
+        if (sensor_read(r) != ESP_OK) continue;
+        for (int e = 0; e < SENSOR_PADS; e++) background[e] += r[e];
         n++;
     }
-    for (int e = 0; e < MPR121_ELECTRODES; e++) background[e] /= BASELINE_READS;
+    for (int e = 0; e < SENSOR_PADS; e++) background[e] /= BASELINE_READS;
 }
 
 /* Sets the background for a change, and black or white text to read against it. */
@@ -101,27 +101,27 @@ static void colour(int change)
 
 /* The change of each electrode from its background, which then moves toward this
  * reading unless a hand is present. */
-static void filter(const uint16_t r[MPR121_ELECTRODES], int change[MPR121_ELECTRODES])
+static void filter(const int r[SENSOR_PADS], int change[SENSOR_PADS])
 {
     static int held;
     const float a = PERIOD_MS / 1000.0f / BACKGROUND_S;
     bool hand = false;
-    for (int e = 0; e < MPR121_ELECTRODES; e++) {
-        change[e] = (int)lroundf(background[e] - r[e]);
+    for (int e = 0; e < SENSOR_PADS; e++) {
+        change[e] = (int)lroundf(r[e] - background[e]);
         if (change[e] > HAND_GATE) hand = true;
     }
     held = hand ? held + 1 : 0;
     if (hand && held * PERIOD_MS < HOLD_MAX_S * 1000) return;
-    for (int e = 0; e < MPR121_ELECTRODES; e++) background[e] += a * (r[e] - background[e]);
+    for (int e = 0; e < SENSOR_PADS; e++) background[e] += a * (r[e] - background[e]);
 }
 
 /* The centroid of the changes above NOISE, in the panel's own rows and columns seen
  * from the front (ELE0 at row 0, column 0), or false if no pad is above NOISE. */
-static bool panel_centroid(const int change[MPR121_ELECTRODES], float *row, float *col)
+static bool panel_centroid(const int change[SENSOR_PADS], float *row, float *col)
 {
     float sum = 0;
     *row = *col = 0;
-    for (int e = 0; e < MPR121_ELECTRODES; e++) {
+    for (int e = 0; e < SENSOR_PADS; e++) {
         int w = change[e] - NOISE;
         if (w <= 0) continue;
         sum += w;
@@ -139,7 +139,7 @@ static bool panel_centroid(const int change[MPR121_ELECTRODES], float *row, floa
 static int token(bool dot, float row, float col)
 {
     if (!dot) return -2;
-    for (int e = 0; e < MPR121_ELECTRODES; e++)
+    for (int e = 0; e < SENSOR_PADS; e++)
         if (hypotf(row - e / COLS, col - e % COLS) < TOKEN_RADIUS) return e;
     return -1;
 }
@@ -172,7 +172,7 @@ static int at(int row, int col) { return COLS * (ROWS - 1 - row) + (COLS - 1 - c
 /* Draws the centroid over the grid. The cells are CELL_W + 1 characters apart across
  * and 4 lines apart down, so a centroid of (row, col) in cell units lands on the
  * middle line and middle character of that cell, and between cells in between. */
-static void centroid(const int change[MPR121_ELECTRODES])
+static void centroid(const int change[SENSOR_PADS])
 {
     float sum = 0, row = 0, col = 0;
     for (int r = 0; r < ROWS; r++)
@@ -189,15 +189,16 @@ static void centroid(const int change[MPR121_ELECTRODES])
     printf("\033[%d;%dH\033[1;38;5;196;48;5;231m\u25CF\033[0m", y, x);
 }
 
-static void draw(const uint16_t r[MPR121_ELECTRODES], const int change[MPR121_ELECTRODES], esp_err_t err,
+static void draw(const int r[SENSOR_PADS], const int change[SENSOR_PADS], esp_err_t err,
                  int banner, int tok)
 {
     printf("\033[H"); /* cursor home: draw over the previous frame */
-    printf("MPR121, panel seen from the front, turned 180 degrees. Change from background, raw reading below.\033[K\n");
+    printf("%s, panel seen from the front, turned 180 degrees. Change from background, raw reading below.\033[K\n",
+           SENSOR_NAME);
     printf("Background time constant %.0f s. Grey is under %d, red is %d or more. The red dot is the centroid. b restarts the background.\033[K\n\n",
            BACKGROUND_S, NOISE + 1, FULL_SCALE);
     if (err != ESP_OK) {
-        printf("\033[0mno answer from the MPR121: %s\033[K\n\033[J", esp_err_to_name(err));
+        printf("\033[0mno reading from the %s: %s\033[K\n\033[J", SENSOR_NAME, esp_err_to_name(err));
         fflush(stdout);
         return;
     }
@@ -251,8 +252,8 @@ void app_main(void)
     ble_start();
     printf("\033[2J\033[H\033[?25l"); /* clear the screen and hide the cursor */
     esp_err_t err;
-    while ((err = mpr121_init()) != ESP_OK) {
-        printf("\033[Hno answer from the MPR121 (%s), retrying\033[K\n", esp_err_to_name(err));
+    while ((err = sensor_init()) != ESP_OK) {
+        printf("\033[H%s did not start (%s), retrying\033[K\n", SENSOR_NAME, esp_err_to_name(err));
         fflush(stdout);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -261,8 +262,8 @@ void app_main(void)
     take_baseline();
     printf("\033[2J");
 
-    uint16_t r[MPR121_ELECTRODES];
-    int change[MPR121_ELECTRODES];
+    int r[SENSOR_PADS];
+    int change[SENSOR_PADS];
     bool stream = false;
     int frame = 0, banner = 0;
     TickType_t wake = xTaskGetTickCount();
@@ -276,7 +277,7 @@ void app_main(void)
             stream = false;
             printf("\033[2J");
         }
-        err = mpr121_read(r);
+        err = sensor_read(r);
         bool fired = false;
         int tok = -2;
         if (err == ESP_OK) {
@@ -294,7 +295,7 @@ void app_main(void)
         }
         if (stream) {
             printf("C,%d", frame);
-            for (int e = 0; e < MPR121_ELECTRODES; e++) printf(",%d", change[e]);
+            for (int e = 0; e < SENSOR_PADS; e++) printf(",%d", change[e]);
             printf(",%d,%d\n", tok, fired);
             fflush(stdout);
         } else {

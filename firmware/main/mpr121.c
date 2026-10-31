@@ -1,4 +1,5 @@
-#include "mpr121.h"
+/* The MPR121 capacitive sensor over I2C, as the sensor of the XIAO ESP32-C3 build. */
+#include "sensor.h"
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -7,6 +8,8 @@
 /* Register addresses and start-up values are from my memory of NXP's datasheet and
  * Adafruit's library, not rechecked. */
 #define ADDR 0x5A /* ADDR pin unconnected */
+
+const char *const SENSOR_NAME = "MPR121";
 
 #define REG_FILTERED 0x04 /* two bytes per electrode, little-endian, 10 bits */
 #define REG_MHDR 0x2B     /* baseline filter, eleven registers from here */
@@ -29,7 +32,9 @@ static esp_err_t write_reg(uint8_t reg, uint8_t v)
     return i2c_master_transmit(dev, d, sizeof d, 50);
 }
 
-esp_err_t mpr121_init(void)
+/* Resets the chip, lets it choose each electrode's charge current and time, and
+ * starts it measuring all 12 electrodes. */
+esp_err_t sensor_init(void)
 {
     i2c_master_bus_config_t bus_cfg = {
         .i2c_port = -1,
@@ -57,7 +62,7 @@ esp_err_t mpr121_init(void)
      * baseline, so these only matter for the chip's touch flags. */
     static const uint8_t filter[11] = {0x01, 0x01, 0x0E, 0x00, 0x01, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00};
     for (int i = 0; i < 11; i++) write_reg(REG_MHDR + i, filter[i]);
-    for (int e = 0; e < MPR121_ELECTRODES; e++) {
+    for (int e = 0; e < SENSOR_PADS; e++) {
         write_reg(REG_TOUCH_TH + 2 * e, 12);
         write_reg(REG_TOUCH_TH + 2 * e + 1, 6);
     }
@@ -76,11 +81,13 @@ esp_err_t mpr121_init(void)
     return write_reg(REG_ECR, 0x8C);
 }
 
-esp_err_t mpr121_read(uint16_t filtered[MPR121_ELECTRODES])
+/* The chip's 10-bit filtered reading falls as a hand comes closer, because the extra
+ * capacitance takes longer to charge, so the level is 1023 minus it. */
+esp_err_t sensor_read(int level[SENSOR_PADS])
 {
-    uint8_t reg = REG_FILTERED, d[2 * MPR121_ELECTRODES];
+    uint8_t reg = REG_FILTERED, d[2 * SENSOR_PADS];
     esp_err_t err = i2c_master_transmit_receive(dev, &reg, 1, d, sizeof d, 50);
     if (err != ESP_OK) return err;
-    for (int e = 0; e < MPR121_ELECTRODES; e++) filtered[e] = (d[2 * e] | d[2 * e + 1] << 8) & 0x3FF;
+    for (int e = 0; e < SENSOR_PADS; e++) level[e] = 1023 - ((d[2 * e] | d[2 * e + 1] << 8) & 0x3FF);
     return ESP_OK;
 }
