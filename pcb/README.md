@@ -5,6 +5,8 @@ with a single 2-layer board, 304.8 × 420 mm. The 12 pads are top copper under s
 mask, in the tray's grid. An ESP32-S3-WROOM-1 module senses them itself with its touch
 inputs, so the board has no MPR121, which NXP has discontinued. The module sits in a
 strip below the pads with USB-C, a 3.3 V regulator, reset and boot buttons and an LED.
+Every part is on the back, so the front is only the pads and can lie flat against a
+desk; the pads' traces stay on the back all the way to their resistors.
 
 ![Front](renders/front.png)
 
@@ -55,7 +57,7 @@ are removed, because JLCPCB's standard minimum hole is 0.3 mm.
 ## Ordering from JLCPCB
 
 Upload `fab/touch_panel_gerbers.zip` as a 2-layer, 1.6 mm board, and for assembly on the
-top side, `fab/touch_panel_bom.csv` and `fab/touch_panel_cpl.csv`. Before paying, check
+bottom side, `fab/touch_panel_bom.csv` and `fab/touch_panel_cpl.csv`. Before paying, check
 each part's rotation in JLCPCB's assembly preview: KiCad's footprint orientation and
 JLCPCB's part orientation differ for some parts, often the SOT-23 and the USB-C
 connector, and the files here have not been corrected for that.

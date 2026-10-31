@@ -58,9 +58,9 @@ def main():
             rows += 1
     os.remove(raw_bom)
 
-    # Placement: KiCad's positions of the top-side parts, in JLCPCB's columns
+    # Placement: KiCad's positions of the parts, all on the back, in JLCPCB's columns
     raw_pos = os.path.join(FAB, "kicad_pos.csv")
-    run("pcb", "export", "pos", "--format", "csv", "--units", "mm", "--side", "front", "-o", raw_pos, BOARD)
+    run("pcb", "export", "pos", "--format", "csv", "--units", "mm", "--side", "back", "-o", raw_pos, BOARD)
     with open(raw_pos) as f, open(os.path.join(FAB, "touch_panel_cpl.csv"), "w", newline="") as out:
         w = csv.writer(out)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])

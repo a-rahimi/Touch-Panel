@@ -4,15 +4,20 @@
         pcb/tools/make_board.py
 
 The board is the 12 x 15 inch pad grid with a strip below it for the electronics.
-Seen from the front (the top layer), the pads are top copper under solder mask, and a
-via inside each pad's corner takes its signal to the bottom layer. There it runs down
-one of the two vertical gaps between pad columns, which together carry all 12 traces
-side by side in an order chosen so that no two cross. At the bottom of the grid each
-trace goes back to the top layer and runs along a bus to its 510 ohm resistor above
-the module. The bottom layer under the pads is a hatched shield driven by GPIO14.
-Everything below the grid is in a strip whose copper is ground, starting 15 mm below
-the pads so ground does not take the field the pads need. The module's antenna end is
-flush with the bottom edge. strip_router.py routes the short connections in the strip.
+The front (the top layer) carries only the pads, top copper under solder mask, and every
+part is on the back, so the front can lie flat against a desk. A via inside each pad's
+corner takes its signal to the bottom layer, where it runs down one of the two vertical
+gaps between pad columns, which together carry all 12 traces side by side in an order
+chosen so that no two cross, and on along a bus to its 510 ohm resistor above the
+module. The bottom layer under the pads is a hatched shield driven by GPIO14, whose
+trace crosses the bus on the top layer. Everything below the grid is in a strip whose
+copper is ground, starting 15 mm below the pads so ground does not take the field the
+pads need. The module's antenna end is flush with the bottom edge. strip_router.py
+routes the short connections in the strip.
+
+Coordinates are as seen from the front. A part on the back is placed there and then
+flipped left to right, which mirrors it, so the strip is laid out as the mirror image
+of what it would be with the parts on the front.
 """
 import math
 import os
@@ -80,6 +85,8 @@ def edge():
 # ---- parts -----------------------------------------------------------------------
 
 def placements():
+    # the strip's parts, laid out as if on the front and then mirrored about the module,
+    # because flipping them to the back mirrors them
     at = {"U1": (XM, YM, 180), "J1": (XM + 38, YB - 3.7, 0), "U3": (XM + 38, YB - 14, 0),
           "R15": (XM + 17, YM - 12, 0), "R16": (XM + 17, YM - 9.5, 0),
           "R13": (XM + 32, YB - 10, 90), "R14": (XM + 44, YB - 10, 90),
@@ -87,11 +94,13 @@ def placements():
           "C3": (XM + 12.5, YM + 4, 90), "C4": (XM + 14.5, YM + 4, 90),
           "R17": (XM + 20, YM + 1, 90), "C5": (XM + 22, YM + 1, 90), "SW1": (XM + 70, YM + 4, 0),
           "R18": (XM - 14, YM - 8, 90), "SW2": (XM - 32, YM + 4, 0),
-          "R19": (XM - 14, YM - 3, 90), "D1": (XM - 14, YM + 1, 90),
-          "E13": (XM - 1.91, G - 1.5, 0)}
-    # Touch resistors: R3-R7 directly above the module pins they connect to, R1-R2 left of
-    # the shield's path up from GPIO14, R8-R12 right of the module.
-    xs = [-4.45, -3.18, 0.64, 1.91, 3.18, 4.45, 6.99, 8.26, 9.53, 10.80, 12.07, 13.34]
+          "R19": (XM - 14, YM - 3, 90), "D1": (XM - 14, YM + 1, 90)}
+    at = {ref: (2 * XM - x, y, rot) for ref, (x, y, rot) in at.items()}
+    at["E13"] = (XM + 1.91, G - 1.5, 0)
+    # Touch resistors, seen from the front: R6-R10 directly above the module pins they
+    # connect to, R1-R5 left of the module, and R11-R12 right of the shield's path up from
+    # GPIO14 (see ROW_ORDER in design.py).
+    xs = [-13.34, -12.07, -10.80, -9.53, -8.26, -6.99, -4.45, -3.18, -1.91, -0.64, 3.18, 4.45]
     for i, dx in enumerate(xs):
         at[f"R{i + 1}"] = (XM + dx, YM - 16.5, 90)
     for e in range(12):
@@ -127,8 +136,8 @@ def add_parts():
         if name.startswith("ESP32"):
             # The module footprint's ground pad carries 0.2 mm thermal vias, finer than
             # the 0.3 mm the board allows. At this module's power they are not needed,
-            # so they become plain top-side copper inside the ground pad, and the router
-            # gives the pad an ordinary via instead.
+            # so they become plain copper on the pad's side, inside the ground pad, and
+            # the router gives the pad an ordinary via instead.
             for pad in m.Pads():
                 if pad.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and pcbnew.ToMM(pad.GetDrillSize().x) < 0.3:
                     pad.SetAttribute(pcbnew.PAD_ATTRIB_SMD)
@@ -152,8 +161,10 @@ def add_parts():
                     board.Add(NETS[net])
             pad.SetNet(NETS[net])
         board.Add(m)
-        if name == "ShieldTap":
-            m.Flip(m.GetPosition(), pcbnew.FLIP_DIRECTION_TOP_BOTTOM)  # only once it is on the board
+        # every part but the pads and holes goes on the back; a footprint can only be
+        # flipped once it is on the board
+        if not p["ref"].startswith(("E", "H")) or name == "ShieldTap":
+            m.Flip(m.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
         fps[p["ref"]] = m
     return fps
 
@@ -189,9 +200,10 @@ def via(net, xy):
 
 
 def electrode_traces(fps):
-    """Each pad's trace: down its gap on the bottom layer, then along the bus on the top
-    layer to its resistor. Lines in a gap are numbered 1-6 left to right; the order of
-    pads in LEFT and RIGHT is what keeps them from crossing (see design.py)."""
+    """Each pad's trace, all on the bottom layer after the via in its pad: down its gap,
+    then along the bus to its resistor on the back. Lines in a gap are numbered 1-6 left
+    to right; the order of pads in LEFT and RIGHT is what keeps them from crossing (see
+    design.py)."""
     left = [(0, 3), (0, 2), (0, 1), (0, 0), (1, 0), (1, 1)]
     right = [(1, 3), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3)]
     for side, cells, gap_x in (("L", left, X0 + design.CELL_W), ("R", right, X0 + 2 * design.CELL_W)):
@@ -211,19 +223,20 @@ def electrode_traces(fps):
             via(net, (vx, vy))
             track(net, pcbnew.B_Cu, (vx, vy), (line_x, vy))
             track(net, pcbnew.B_Cu, (line_x, vy), (line_x, bus_y))
-            via(net, (line_x, bus_y))
-            track(net, pcbnew.F_Cu, (line_x, bus_y), (rx, bus_y))
-            track(net, pcbnew.F_Cu, (rx, bus_y), (rx, ry))
+            track(net, pcbnew.B_Cu, (line_x, bus_y), (rx, bus_y))
+            track(net, pcbnew.B_Cu, (rx, bus_y), (rx, ry))
 
 
 def shield_trace(fps):
-    """GPIO14 up to the shield tap: a short hop on top, then the bottom layer, under the bus."""
+    """GPIO14 up to the shield tap: a short hop on the back, then the top layer over the
+    bus, which is on the back, and down through a via into the tap."""
     px, py = pad_xy(fps, "U1", str(design.MODULE_PIN[design.SHIELD_GPIO]))
     tx, ty = pad_xy(fps, "E13", "1")
     up = py - 2.0
-    track("SHIELD", pcbnew.F_Cu, (px, py), (px, up))
+    track("SHIELD", pcbnew.B_Cu, (px, py), (px, up))
     via("SHIELD", (px, up))
-    track("SHIELD", pcbnew.B_Cu, (px, up), (tx, ty))
+    track("SHIELD", pcbnew.F_Cu, (px, up), (tx, ty))
+    via("SHIELD", (tx, ty))
 
 
 def usb_breakout(fps):
@@ -232,25 +245,28 @@ def usb_breakout(fps):
     VBUS, (SBU), CC1, D-, D+, D-, D+, (SBU), CC2, VBUS, and the two D- pins and two D+
     pins interleave, so one pair must cross the other through vias.
 
-    VBUS goes straight to the bottom layer through a via above each of its pads, and the
-    two vias are joined there. That leaves room for CC1 and CC2 to swing out over the
-    unused SBU pins and away to 2.8 mm either side of the middle. The data pins fan out
-    inside them, the outer ones first, so no two tracks pass closer than 0.3 mm. D- then
-    crosses under D+: its two pins end in vias joined on the bottom layer, and D+ joins
-    its pins on the top layer above them. Returns, for each net, the (layer, x, y) points
-    to route on from."""
+    The connector is on the back, so its pads are on the bottom layer, and seen from the
+    front it is mirrored: everything here is drawn as for a connector on the front and
+    then mirrored (MIRROR), with the layers swapped. VBUS goes through a via above each
+    of its pads to the top layer, and the two vias are joined there. That leaves room for
+    CC1 and CC2 to swing out over the unused SBU pins and away to 2.8 mm either side of
+    the middle. The data pins fan out inside them, the outer ones first, so no two
+    tracks pass closer than 0.3 mm. D- then crosses D+: its two pins end in vias joined
+    on the top layer, and D+ joins its pins on the bottom layer above them. Returns, for
+    each net, the (layer, x, y) points to route on from."""
+    MIRROR = -1
     pads = {pd.GetNumber(): pd for pd in fps["J1"].Pads()}
     mid = (pcbnew.ToMM(pads["A6"].GetPosition().x) + pcbnew.ToMM(pads["A7"].GetPosition().x)) / 2
     top = pcbnew.ToMM(pads["A6"].GetBoundingBox().GetY())
 
-    def at(dx, dy):  # dx from the middle, dy above the pads' top edge
-        return (mid + dx, top - dy)
+    def at(dx, dy):  # dx from the middle, before mirroring; dy above the pads' top edge
+        return (mid + MIRROR * dx, top - dy)
 
     def path(net, num, pts):
         c = pads[num].GetPosition()
         pts = [(pcbnew.ToMM(c.x), pcbnew.ToMM(c.y))] + [at(*p) for p in pts]
         for a, b in zip(pts, pts[1:]):
-            track(net, pcbnew.F_Cu, a, b)
+            track(net, pcbnew.B_Cu, a, b)
 
     path("CC1", "A5", [(-1.25, 0.3), (-1.75, 0.8), (-1.75, 1.3), (-2.8, 2.35), (-2.8, 3.0)])
     path("CC2", "B5", [(1.75, 1.3), (2.8, 2.35), (2.8, 3.0)])
@@ -264,13 +280,13 @@ def usb_breakout(fps):
         via("VBUS", at(x, 0.8))
     for x in (-1.6, 0.55):
         via("USB_DN", at(x, 3.0))
-    track("VBUS", pcbnew.B_Cu, at(-2.45, 0.8), at(2.45, 0.8), POWER_TRACK)
-    track("USB_DN", pcbnew.B_Cu, at(-1.6, 3.0), at(0.55, 3.0))
-    track("USB_DP", pcbnew.F_Cu, at(-0.55, 3.9), at(1.6, 3.9))
-    point = lambda layer, dx, dy: (layer, *at(dx, dy))
-    return {"CC1": [point(0, -2.8, 3.0)], "CC2": [point(0, 2.8, 3.0)],
-            "USB_DN": [point(1, -0.5, 3.0)], "USB_DP": [point(0, 0.5, 3.9)],
-            "VBUS": [point(1, 0, 0.8)]}
+    track("VBUS", pcbnew.F_Cu, at(-2.45, 0.8), at(2.45, 0.8), POWER_TRACK)
+    track("USB_DN", pcbnew.F_Cu, at(-1.6, 3.0), at(0.55, 3.0))
+    track("USB_DP", pcbnew.B_Cu, at(-0.55, 3.9), at(1.6, 3.9))
+    point = lambda layer, dx, dy: (layer, *at(dx, dy))  # layer 0 is the top, 1 the bottom
+    return {"CC1": [point(1, -2.8, 3.0)], "CC2": [point(1, 2.8, 3.0)],
+            "USB_DN": [point(0, -0.5, 3.0)], "USB_DP": [point(1, 0.5, 3.9)],
+            "VBUS": [point(0, 0, 0.8)]}
 
 
 def zone(net, layer, corners, hatch=False):
@@ -469,16 +485,16 @@ def route_strip(fps, starts):
             lay(net, path, width)
             tree += path
 
-    # every ground pad only on the top layer gets a short track to a via to the bottom
-    # ground; pads on both layers and stacked pads need none
+    # every ground pad on only one layer gets a short track to a via to the other
+    # layer's ground; pads on both layers and stacked pads need none
     for ref, pad in net_pads("GND"):
         (layer, cx, cy), *more = cells(pad)
         if more:
             continue
-        spots = [(0, cx + dx, cy + dy) for dy in range(-25, 26) for dx in range(-25, 26)
-                 if grid.inside(cx + dx, cy + dy) and grid.free(0, cx + dx, cy + dy, code["GND"])
+        spots = [(layer, cx + dx, cy + dy) for dy in range(-25, 26) for dx in range(-25, 26)
+                 if grid.inside(cx + dx, cy + dy) and grid.free(layer, cx + dx, cy + dy, code["GND"])
                  and grid.via_fits(cx + dx, cy + dy, code["GND"], MAX_HALF)]
-        path = grid.route([(0, cx, cy)], spots, code["GND"], MAX_HALF, allow_via=False) if spots else None
+        path = grid.route([(layer, cx, cy)], spots, code["GND"], MAX_HALF, allow_via=False) if spots else None
         if path is None:
             failed.append(("GND", ref, pad.GetNumber()))
             continue

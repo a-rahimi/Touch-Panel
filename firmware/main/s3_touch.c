@@ -12,7 +12,7 @@
 const char *const SENSOR_NAME = "ESP32-S3 touch";
 
 /* Touch channel (= GPIO) of each electrode, from TOUCH in pcb/tools/design.py. */
-static const int channel_of[SENSOR_PADS] = {11, 10, 7, 12, 9, 6, 2, 8, 5, 1, 3, 4};
+static const int channel_of[SENSOR_PADS] = {7, 8, 11, 6, 3, 12, 5, 10, 2, 4, 9, 1};
 
 /* SHIELD_DRIVEN: T14 is driven with the waveform of the pad being measured, which
  *   hides the pads from what is behind the board without loading them.

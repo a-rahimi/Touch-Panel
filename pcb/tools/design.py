@@ -20,8 +20,8 @@ GRID_W, GRID_H = COLS * CELL_W, ROWS * CELL_H
 # Which touch input senses which pad. Electrodes are numbered as before: left to right
 # and top to bottom seen from the front, so ELE0 is top left. The order is chosen so the
 # traces from the pads reach their resistors without crossing (see make_board.py).
-TOUCH = {9: 1, 6: 2, 3: 12, 0: 11, 1: 10, 4: 9,      # through the left channel
-         10: 3, 7: 8, 2: 7, 5: 6, 8: 5, 11: 4}      # through the right channel
+TOUCH = {9: 4, 6: 5, 3: 6, 0: 7, 1: 8, 4: 3,        # through the left channel
+         10: 9, 7: 10, 2: 11, 5: 12, 8: 2, 11: 1}   # through the right channel
 SHIELD_GPIO = 14
 
 # GPIO number to ESP32-S3-WROOM-1 pin number, from KiCad's RF_Module symbol.
@@ -83,8 +83,11 @@ PARTS = [
          {"1": "GND", "2": "LED_A"}),
 ]
 
-# The touch resistors, numbered R1 to R12 left to right along the row above the module.
-ROW_ORDER = [1, 2, 12, 11, 10, 9, 3, 8, 7, 6, 5, 4]
+# The touch resistors, numbered R1 to R12 left to right along the row above the module
+# as seen from the front. The module is on the back, so seen from the front it is
+# mirrored: GPIO4-8 come out on its left, GPIO3 and GPIO9-12 along its top, and GPIO1-2
+# on its right, with GPIO14's shield trace between GPIO12 and GPIO2.
+ROW_ORDER = [4, 5, 6, 7, 8, 3, 9, 10, 11, 12, 2, 1]
 ELECTRODE_OF = {gpio: ele for ele, gpio in TOUCH.items()}
 for i, gpio in enumerate(ROW_ORDER):
     PARTS.append(part(f"R{i + 1}", "Device:R", R0402, "510", "C25123",
