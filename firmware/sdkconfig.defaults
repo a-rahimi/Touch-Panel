@@ -1,0 +1,9 @@
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# The console goes over USB so that the firmware can read keys sent to it.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# Bluetooth LE, with the NimBLE host, for reporting the dot (ble.c).
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_LOG_LEVEL_WARNING=y
+# Wi-Fi and Bluetooth together make the app about 1.1 MB, over the default 1 MB partition.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y

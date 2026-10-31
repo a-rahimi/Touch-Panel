@@ -1,0 +1,13 @@
+# Wi-Fi credentials, which the firmware build reads (firmware/.env.example shows the format).
+.env
+
+# Generated: the ESP-IDF build and its config, and the printable tiles and project,
+# which tools/plate.sh rebuilds.
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+cad/build/
+
+__pycache__/
+.DS_Store

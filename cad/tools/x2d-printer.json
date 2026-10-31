@@ -1,0 +1,51 @@
+{
+  "bed_exclude_area": [],
+  "extruder_ams_count": [
+    "1#0|4#1",
+    "1#0|4#0"
+  ],
+  "extruder_colour": [
+    "#018001",
+    "#018001"
+  ],
+  "extruder_max_nozzle_count": [
+    "1",
+    "1"
+  ],
+  "extruder_nozzle_stats": [
+    "Standard#1",
+    "Standard#1"
+  ],
+  "extruder_nozzle_stats_new": [
+    "Standard#1",
+    "Standard#1"
+  ],
+  "extruder_offset": [
+    "0x0",
+    "0x0"
+  ],
+  "max_layer_height": [
+    "0.28",
+    "0.28"
+  ],
+  "min_layer_height": [
+    "0.08",
+    "0.08"
+  ],
+  "physical_extruder_map": [
+    "1",
+    "0"
+  ],
+  "default_nozzle_volume_type": [
+    "Standard",
+    "Standard"
+  ],
+  "flush_multiplier_fast": [
+    "1.2",
+    "1.2"
+  ],
+  "grab_length": [
+    "0",
+    "0"
+  ]
+}
