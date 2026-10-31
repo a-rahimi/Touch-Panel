@@ -1,5 +1,5 @@
-# Wi-Fi credentials, which the firmware build reads (firmware/.env.example shows the format).
-.env
+# Wi-Fi credentials (firmware/main/wifi_secrets.h.example is the template).
+firmware/main/wifi_secrets.h
 
 # Generated: the ESP-IDF build and its config, and the printable tiles and project,
 # which tools/plate.sh rebuilds.

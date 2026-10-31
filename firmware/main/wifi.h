@@ -1,5 +1,5 @@
 /* Joins a Wi-Fi network as a station and keeps rejoining if it drops. The network's
- * name and password come from firmware/.env, which git ignores, at build time. */
+ * name and password are in wifi_secrets.h, which git ignores. */
 #pragma once
 
 /* Starts joining in the background. */

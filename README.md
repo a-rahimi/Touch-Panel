@@ -22,8 +22,9 @@ OpenSCAD and Bambu Studio installed where the script expects them.
 ## Flashing the firmware
 
 The firmware needs ESP-IDF v6. The Wi-Fi network's name and password go in
-`firmware/.env`, which git ignores: copy `firmware/.env.example` and fill it in. The
-build compiles them into the firmware, so the board can join the network. The name of
+`firmware/main/wifi_secrets.h`, which git ignores: copy `wifi_secrets.h.example` next
+to it and fill it in. The build compiles them into the firmware, so the board can join
+the network. The name of
 the Kasa switch to toggle is `KASA_ALIAS` in `firmware/main/kasa.h`. Then, in `firmware/`:
 
 ```

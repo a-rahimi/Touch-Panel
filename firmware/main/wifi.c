@@ -6,7 +6,7 @@
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 
-#include "wifi_secrets.h" /* WIFI_SSID and WIFI_PASSWORD, generated from firmware/.env */
+#include "wifi_secrets.h" /* WIFI_SSID and WIFI_PASSWORD, kept out of git */
 
 static char address[16];
 static volatile bool connected;
